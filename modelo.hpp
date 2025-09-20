@@ -253,7 +253,7 @@ SX conj_qd_casadi(const casadi::SX& q){
     // Verifique se q é um vetor linha com 8 elementos
     if (q.size1() != 8 || q.size2() != 1) {
         std::cout << "q tem tamanho errado: " << q << std::endl;
-        throw std::invalid_argument("O quaternio dual 'q' deve ser um vetor linha com 8 componentes (1x8) conjugado.");
+        throw std::invalid_argument("O quaternio dual 'q' deve ser um vetor linha com 8 componentes (8x1) conjugado.");
     }
 
     // Componentes individuais do quaternio dual
@@ -271,7 +271,7 @@ SX conj_qd_casadi(const casadi::SX& q){
 
     // Garantir que a saída também seja um vetor linha
     if (q_conj.size1() != 8 || q_conj.size2() != 1) {
-        throw std::runtime_error("Erro interno: q_inv não é um vetor linha (1x8) conjugado.");
+        throw std::runtime_error("Erro interno: q_inv não é um vetor linha (8x1) conjugado.");
     }
     return q_conj;
 }
