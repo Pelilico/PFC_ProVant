@@ -114,7 +114,10 @@ Eigen::VectorXd Input;
 Eigen::VectorXd X_STATES;
 Eigen::VectorXd Xref;
 Eigen::VectorXd Erro;
+Eigen::VectorXd Erro_ref;
+Eigen::VectorXd Erro_state;
 std::vector<double> alvo;           // Alvo como membro da classe
+std::vector<double> xr_init;        // Vetor de referência
 Eigen::Quaterniond q_d;
 static bool has_landed;             // Variável estática
 static ros::Time landed_time; // Armazena o tempo em que o drone pousou
@@ -404,7 +407,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
         SX q_des = SX::vertcat({SX(q_d.w()), SX(q_d.x()), SX(q_d.y()), SX(q_d.z())});
         DM dual_pose_des = 0.5 * DM(produto_q(p_des, q_des));
 
-std::vector<double> xr_init = {
+    xr_init = {
     q_d.w(), q_d.x(), q_d.y(), q_d.z(),     // Orientação desejada
     static_cast<double>(dual_pose_des(0)),
     static_cast<double>(dual_pose_des(1)),
@@ -430,6 +433,11 @@ std::vector<double> xr_init = {
 
     }
 
+    SX prox_pos = SX::zeros(4, 1);
+    SX prox_ori = SX::zeros(4, 1);
+    SX prox_vel = SX::zeros(4, 1);
+    SX prox_ome = SX::zeros(4, 1);
+    SX prox_dual_pose = SX::zeros(4, 1);
 
     std::vector<double> execute(simulator_msgs::SensorArray arraymsg)
     {
@@ -465,27 +473,50 @@ std::vector<double> xr_init = {
     ros::Time time = ros::Time::now();
     double tempo = time.toSec();
 
+    // Atualizar o X_STATES e o Xref para atualizar os vetores para a proxima iteracaos
+    Xref << xr_init[0], xr_init[1], xr_init[2], xr_init[3],
+             xr_init[4], xr_init[5], xr_init[6], xr_init[7],
+             xr_init[8], xr_init[9], xr_init[10], xr_init[11],
+             xr_init[12], xr_init[13], xr_init[14], xr_init[15];
+    
+    // Read the values of the state vector from the message 
+    
+    prox_pos = SX::vertcat({0, msg.values.at(0), msg.values.at(1), msg.values.at(2)});
+    prox_ori = SX::vertcat({msg.values.at(21), msg.values.at(18), msg.values.at(19), msg.values.at(20)});
+    prox_vel = SX::vertcat({0, msg.values.at(6), msg.values.at(7), msg.values.at(8)});
+    prox_ome = SX::vertcat({0, msg.values.at(15), msg.values.at(16), msg.values.at(17)});
 
-    Xref << alvo[0], alvo[1], alvo[2], 0, 0, 0, q_d.w(), q_d.x(), q_d.y(), q_d.z(), 0, 0, 0;
+    prox_dual_pose = 0.5 * produto_q(prox_pos, prox_ori);
+    // prox_pose = SX::vertcat({prox_ori, prox_dual_pose}); //pode excluir
+    prox_ome = ad_qd_casadi(conj_qd_casadi(SX::vertcat({prox_ori, SX::zeros(4,1)})), SX::vertcat({prox_ome, SX::zeros(4,1)}));
+    // prox_heligiro = SX::vertcat({prox_ome, prox_vel}); //pode excluir
 
+    // std::cout << "prox_pos: " << prox_pos << std::endl; //pode excluir
+    // std::cout << "prox_ori: " << prox_ori << std::endl; //pode excluir
+    // std::cout << "prox_dual_pose: " << prox_dual_pose << std::endl; //pode excluir
+    // std::cout << "prox_ome: " << prox_ome << std::endl;//pode excluir
+    // std::cout << "prox_vel: " << prox_vel << std::endl;//pode excluir
 
-    // Read the values of the state vector from the message
-    X_STATES << msg.values.at(0),  // x
-        msg.values.at(1),   // y
-        msg.values.at(2),   // z
-            msg.values.at(6),    // x_dot
-            msg.values.at(7),   // y_dot
-            msg.values.at(8),   // z_dot
-            msg.values.at(21),   // w
-        msg.values.at(18),   // xi
-        msg.values.at(19),   // yj
-        msg.values.at(20),   // zk
-        msg.values.at(15),  // p
-        msg.values.at(16),  // q
-        msg.values.at(17);  // r
+    // std::cout << "X_STATES antes" << X_STATES << std::endl;//pode excluir
+
+    X_STATES << static_cast<double>(prox_ori(0).scalar()), static_cast<double>(prox_ori(1).scalar()), static_cast<double>(prox_ori(2).scalar()), static_cast<double>(prox_ori(3).scalar()),
+                static_cast<double>(prox_dual_pose(0).scalar()), static_cast<double>(prox_dual_pose(1).scalar()), static_cast<double>(prox_dual_pose(2).scalar()), static_cast<double>(prox_dual_pose(3).scalar()),
+                static_cast<double>(prox_ome(0).scalar()), static_cast<double>(prox_ome(1).scalar()), static_cast<double>(prox_ome(2).scalar()), static_cast<double>(prox_ome(3).scalar()),
+                static_cast<double>(prox_vel(0).scalar()), static_cast<double>(prox_vel(1).scalar()), static_cast<double>(prox_vel(2).scalar()), static_cast<double>(prox_vel(3).scalar());
+    
+    std::cout << "X_STATES depois" << X_STATES << std::endl;
 
     // Calculate the error vector of the system
-    Erro = X_STATES - Xref;
+    // Erro = X_STATES - Xref;
+    Erro_state << static_cast<double>(prox_ori(1).scalar()),
+        static_cast<double>(prox_ori(2).scalar()),
+        static_cast<double>(prox_ori(3).scalar());
+
+    Erro_ref << alvo[0],
+        alvo[1],
+        alvo[2];
+
+    Erro = Erro_state - Erro_ref;
 
     std::cout << "Erro: " << Erro << std::endl;
 
@@ -571,7 +602,7 @@ std::vector<double> xr_init = {
      u_0 = horzcat(u_0(Slice(), Slice(1, N)), u_0(Slice(), N-1));
     //u_0 = horzcat(u_0(Slice(), Slice(1, N)), u_0(Slice(), Slice(N-1, N)));
 
-     //std::cout << "u_0 valores" << u_0 << std::endl;
+     std::cout << "u_0 valores" << u_0 << std::endl;
 
        unpauseGazebo(unpause_physics_client, srv);
 
