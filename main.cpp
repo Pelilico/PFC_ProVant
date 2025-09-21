@@ -34,7 +34,7 @@ std::vector<double> ubg(estados*(N+1), 0);
 std::vector<double> lbx(estados*(N+1) + entradas*N);
 std::vector<double> ubx(estados*(N+1) + entradas*N);
 
-//DEFINIR ESTADOS x=[e, v, q, ohm]' \in R^13
+//DEFINIR ESTADOS x \in R^16
 SX pose = SX::sym("pose",8,1);
 SX heligiro = SX::sym("heligiro",8,1);
 std::vector<SX> states = {pose, heligiro};
@@ -114,8 +114,6 @@ Eigen::VectorXd Input;
 Eigen::VectorXd X_STATES;
 Eigen::VectorXd Xref;
 Eigen::VectorXd Erro;
-Eigen::VectorXd Erro_ref;
-Eigen::VectorXd Erro_state;
 std::vector<double> alvo;           // Alvo como membro da classe
 std::vector<double> xr_init;        // Vetor de referência
 Eigen::Quaterniond q_d;
@@ -289,7 +287,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
     }
 
 
-
+    SX p_des = SX::zeros(4, 1);
     void config()
     {
 
@@ -403,7 +401,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
         q_d = eul2quat(0, 0, yaw_mexe);
 
         std::cout << q_d.w() << " " << q_d.x() << " " << q_d.y() << " " << q_d.z() << std::endl;
-        SX p_des = SX::vertcat({SX(0), SX(alvo[0]), SX(alvo[1]), SX(alvo[2])});
+        p_des = SX::vertcat({SX(0), SX(alvo[0]), SX(alvo[1]), SX(alvo[2])});
         SX q_des = SX::vertcat({SX(q_d.w()), SX(q_d.x()), SX(q_d.y()), SX(q_d.z())});
         DM dual_pose_des = 0.5 * DM(produto_q(p_des, q_des));
 
@@ -433,6 +431,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
 
     }
 
+    SX Erro_aux = SX::zeros(4, 1);
     SX prox_pos = SX::zeros(4, 1);
     SX prox_ori = SX::zeros(4, 1);
     SX prox_vel = SX::zeros(4, 1);
@@ -508,21 +507,19 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
 
     // Calculate the error vector of the system
     // Erro = X_STATES - Xref;
-    Erro_state << static_cast<double>(prox_ori(1).scalar()),
-        static_cast<double>(prox_ori(2).scalar()),
-        static_cast<double>(prox_ori(3).scalar());
+    Erro_aux = prox_pos - p_des;
 
-    Erro_ref << alvo[0],
-        alvo[1],
-        alvo[2];
+    std::cout << "Erro_aux: " << Erro_aux << std::endl;
 
-    Erro = Erro_state - Erro_ref;
+
+
+    Erro << static_cast<double>(Erro_aux(1).scalar()), static_cast<double>(Erro_aux(2).scalar()), static_cast<double>(Erro_aux(3).scalar());
 
     std::cout << "Erro: " << Erro << std::endl;
 
 
     // Calcula a norma apenas dos primeiros 3 elementos de Erro
-    double erro_norma = Erro.head(10).norm();
+    double erro_norma = Erro.norm();
 
     //double limite_erro = 0.07; // Defina o limite de erro para considerar que o alvo foi alcançado
 
@@ -543,6 +540,11 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
         args["p"] = vertcat(x0, x_r);
         args["x0"] = vertcat(reshape(x_0, estados*(N+1), 1), reshape(u_0, entradas*N, 1));
 
+        // std::cout << "Dim X: " << estados*(N+1) 
+        //   << " Dim U: " << entradas*N 
+        //   << " Total Vars: " << (estados*(N+1) + entradas*N) << std::endl;
+        // std::cout << "Dim lbx: " << lbx.size() 
+        //   << " Dim ubx: " << ubx.size() << std::endl;
 
         std::map<std::string, DM> sol = solver(args);
 
