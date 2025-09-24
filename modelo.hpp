@@ -836,11 +836,13 @@ std::tuple<SX, SX, SX, SX, SX> compute_next_qd(const SX& state, const SX& u1, SX
 
     // Aceleração angular
     // Calcular o momento angular
-    SX m_wb = m_qd_casadi(J_inertia_sx, wb);
+    SX m_wb = mtimes_with_check(J_inertia_sx, vec3_qd_casadi(wb), "J_inertia_sx", "wb");
+    m_wb = SX::vertcat({SX(0), m_wb, SX(0), SX(0), SX(0), SX(0)});
     // Negativo de wb
     SX wb_neg = x_outro - wb;
     SX soma_cross = cross_qd_casadi(wb_neg, m_wb) + tau.T();
-    aak = m_qd_casadi(J_inertia_inv_sx, soma_cross);
+    aak = mtimes_with_check(J_inertia_inv_sx, vec3_qd_casadi(soma_cross), "J_inertia_inv_sx", "soma_cross");
+    aak = SX::vertcat({SX(0), aak, SX(0), SX(0), SX(0), SX(0)});
 
     // Calcular WB
     wb = ad_qd_casadi(conj_qd_casadi(rot_qd_casadi(pose)), SX::horzcat({heligiro(Slice(0, 4)), SX::zeros(4, 1)}));
