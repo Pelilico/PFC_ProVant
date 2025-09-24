@@ -344,36 +344,6 @@ SX cross_qd_casadi(const SX& q1, const SX& q2) {
     return SX::vertcat({real_part, dual_part});
 }
 
-// // Funcao problematica
-// SX normalize_qd_casadi(const SX& qd) {
-//     if (qd.size1() != 8 || qd.size2() != 1) {
-//         throw std::invalid_argument("O vetor 'qd' deve ter dimensões 8x1 em normalize.");
-//     }
-//     // Separar partes real e dual
-//     SX q_real = qd(Slice(0, 4));
-//     SX q_dual = qd(Slice(4, 8));
-
-//     // Calcular norma da parte real
-//     SX norm_real = sqrt(mtimes(q_real, q_real.T()));
-
-//     // Caso especial: norma muito pequena
-//     SX small_norm = norm_real < 1e-12;
-//     SX scale_real = if_else(small_norm, SX(1), SX(1) / norm_real);
-//     SX q_real_norm = scale_real * q_real;
-
-//     // Corrigir parte dual (garantir perpendicularidade)
-//     SX dot_prod = mtimes(q_real_norm, q_dual);
-//     SX q_dual_norm = (q_dual - dot_prod * q_real_norm) * scale_real;
-
-//     // Definir quatérnio identidade dual caso necessário
-//     SX q_real_norm_safe = if_else(norm_real < small_norm, SX::vertcat({1, 0, 0, 0}), q_real_norm);
-//     SX q_dual_norm_safe = if_else(norm_real < small_norm, SX::vertcat({0, 0, 0, 0}), q_dual_norm);
-
-//     // Concatenar resultado (vetor linha 1x8)
-//     SX qd_norm = SX::vertcat({q_real_norm_safe, q_dual_norm_safe});
-//     return qd_norm;
-// }
-
 // Funcao verificada
 SX p_qd_casadi(const SX& q) {
     // Extrai parte real (r) e dual (d)
@@ -413,6 +383,36 @@ SX norma_qd_casadi(const SX& q) {
     return res;
 }
 
+// // Funcao problematica
+// SX normalize_qd_casadi(const SX& qd) {
+//     if (qd.size1() != 8 || qd.size2() != 1) {
+//         throw std::invalid_argument("O vetor 'qd' deve ter dimensões 8x1 em normalize.");
+//     }
+//     // Separar partes real e dual
+//     SX q_real = qd(Slice(0, 4));
+//     SX q_dual = qd(Slice(4, 8));
+
+//     // Calcular norma da parte real
+//     SX norm_real = sqrt(mtimes(q_real, q_real.T()));
+
+//     // Caso especial: norma muito pequena
+//     SX small_norm = norm_real < 1e-12;
+//     SX scale_real = if_else(small_norm, SX(1), SX(1) / norm_real);
+//     SX q_real_norm = scale_real * q_real;
+
+//     // Corrigir parte dual (garantir perpendicularidade)
+//     SX dot_prod = mtimes(q_real_norm, q_dual);
+//     SX q_dual_norm = (q_dual - dot_prod * q_real_norm) * scale_real;
+
+//     // Definir quatérnio identidade dual caso necessário
+//     SX q_real_norm_safe = if_else(norm_real < small_norm, SX::vertcat({1, 0, 0, 0}), q_real_norm);
+//     SX q_dual_norm_safe = if_else(norm_real < small_norm, SX::vertcat({0, 0, 0, 0}), q_dual_norm);
+
+//     // Concatenar resultado (vetor linha 1x8)
+//     SX qd_norm = SX::vertcat({q_real_norm_safe, q_dual_norm_safe});
+//     return qd_norm;
+// }
+
 // Funcao verificada
 // Exponencial de quaternio dual compatível com CasADi
 SX exp_qd_casadi(const SX& q) {
@@ -436,6 +436,7 @@ SX exp_qd_casadi(const SX& q) {
     SX res = SX::vertcat({p_exp, ex_dual(Slice(0, 4))});
     return res;
 }
+
 
 // Funcao verificada
 // Inversa de quaternio dual compatível com CasADi (entrada e saída: SX linha 1x8)
@@ -470,6 +471,7 @@ SX inv_qd_casadi(const SX& q) {
     SX res = SX::vertcat({real_part_inv, dual_part_inv});
     return res;
 }
+
 
 // Logaritmo de quaternio dual compatível com CasADi
 SX log_qd_casadi(const SX& dq) {
@@ -736,7 +738,6 @@ SX compute_xbarra_qd(const SX& pose, const SX& P_extra) {
     SX q_e_hat = mult_qd_casadi(inv_qd_casadi(P_extra(Slice(16, 24), 0)), pose);
     SX x_till = unit - q_e_hat;
     // SX x_till = log_qd_casadi(q_e_hat);
-    // std::cout << "x_till: " << x_till << std::endl; //pode excluir
 
     return x_till;
 }
@@ -756,9 +757,7 @@ SX compute_hbarra_qd(const SX& pose, const SX& heligiro, const SX& P_extra) {
                          parte_dual_xi_b});        // Vetor da parte dual (3x1)
     
     SX q_e_hat = mult_qd_casadi(inv_qd_casadi(P_extra(Slice(16, 24), 0)), pose);
-    // std::cout << "q_e_hat: " << q_e_hat << std::endl; //pode excluir
     SX xi_d = ad_qd_casadi(conj_qd_casadi(q_e_hat), P_extra(Slice(24, 32), 0));
-    // std::cout << "xi_d: " << xi_d << std::endl; //pode excluir
     SX erro_heligiro = xi_b - xi_d;
 
     return erro_heligiro;
@@ -772,23 +771,14 @@ SX compute_J_qd(const SX& Q, const SX& Qh, const SX& R, const SX& X0, const SX& 
     // Cálculo de xbarra
     SX xbarra = compute_xbarra_qd(X_k(Slice(0, 8)), P_extra);
     SX hbarra = compute_hbarra_qd(X_k(Slice(0, 8)), X_k(Slice(8, 16)), P_extra);
-    // std::cout << "hbarra: " << hbarra << std::endl; //pode excluir
 
     SX conJ = mtimes(mat_aux_con, U_k); //con
-    // std::cout << "conJ: " << conJ << std::endl; //pode excluir
     SX torque_motorJ = conJ(0);
-    //SX T = SX::vertcat({SX(0), SX(0), conJ(0)}); //T
     SX tauJ = SX::vertcat({conJ(1), conJ(2), conJ(3)});
-
-    // Cálculo da força resultante fi
-    SX fi = mtimes_with_check(compute_Rq(X_k.T()), e_z, "Rq", "e_z") * torque_motorJ - m * gr * e_z;
-    // std::cout << "fi: " << fi << std::endl; //pode excluir
-
-
 
     // Cálculo de ubarra
     SX ubarra = SX::zeros(4, 1);
-    ubarra(0, 0) = norm_2(fi);         // Primeiro componente fi
+    ubarra(0, 0) = torque_motorJ - m * gr;         // Primeiro componente fi
     ubarra(1, 0) = tauJ(0);          // Primeiro componente de tau
     ubarra(2, 0) = tauJ(1);          // Segundo componente de tau
     ubarra(3, 0) = tauJ(2);          // Terceiro componente de tau
@@ -796,10 +786,13 @@ SX compute_J_qd(const SX& Q, const SX& Qh, const SX& R, const SX& X0, const SX& 
     // Cálculo incremental do custo J
     SX J =    mtimes_with_check(xbarra.T(), mtimes_with_check(Q, xbarra, "Q", "xbarra"), "xbarra.T()", "Q * xbarra")
             + mtimes_with_check(hbarra.T(), mtimes_with_check(Qh, hbarra, "Qh", "hbarra"), "hbarra.T()", "Qh * hbarra")
-            + mtimes_with_check(ubarra.T(), mtimes_with_check(R, ubarra, "R", "ubarra"), "ubarra.T()", "R * ubarra");// + mtimes(compute_psiq(X_k(Slice(6, 10)), P_extra),Kpsi;, 200, "psiq", "200");
-
+            + mtimes_with_check(ubarra.T(), mtimes_with_check(R, ubarra, "R", "ubarra"), "ubarra.T()", "R * ubarra");
     return J;
 }
+
+
+
+
 
 std::tuple<SX, SX, SX, SX, SX> compute_next_qd(const SX& state, const SX& u1, SX& p_dot, SX& aak, SX& wb, SX& x_outro, const double amostragem) {
     SX gi = SX::vertcat({SX(0), SX(0), SX(0), -9.81, SX(0), SX(0), SX(0), SX(0)}); // Parte real com zero na parte dual
@@ -818,67 +811,48 @@ std::tuple<SX, SX, SX, SX, SX> compute_next_qd(const SX& state, const SX& u1, SX
     // Estados atuais
     SX pose = state(Slice(0, 8));  // Posição
     SX heligiro = state(Slice(8, 16));    // Velocidades
-    // std::cout << "heligiro: " << heligiro << std::endl; //pode excluir
 
     // Calculando as forças e torques
     SX con = mtimes(mat_aux_con, u1); //con
     SX torque_motor = con(0);
     SX T = SX::horzcat({SX(0), SX(0), SX(0), con(0), SX(0), SX(0), SX(0), SX(0)}); //T
     SX tau = SX::horzcat({SX(0),con(1), con(2), con(3), SX(0), SX(0), SX(0), SX(0)}); //tau
-    // std::cout << "tau: " << tau << std::endl; //pode excluir
-    // std::cout << "T: " << T << std::endl; //pode excluir
 
     // Integração pose
     pose = mult_qd_casadi(exp_qd_casadi(amostragem * 0.5 * heligiro), pose);
-    // std::cout << "pose: " << pose << std::endl; //pode excluir
 
     // Integração heligiro
     SX af = (1/m) * ad_qd_casadi(rot_qd_casadi(pose), T);
-    // std::cout << "af: " << af << std::endl; //pode excluir
     SX p_heligiro = heligiro(Slice(0, 4)); // Parte real (ω_b)
     SX p_h = SX::vertcat({p_heligiro,SX(0),SX(0),SX(0),SX(0)}); // Parte real com zero na parte dual
-    // std::cout << "af: " << af << std::endl; //pode excluir
     SX at = cross_qd_casadi(p_dot, p_h) + cross_qd_casadi(translacao_qd_casadi(pose), ad_qd_casadi(rot_qd_casadi(pose), aak));
-    // std::cout << "at: " << at << std::endl; //pode excluir
 
     SX p1 = amostragem * ad_qd_casadi(rot_qd_casadi(pose), aak);
     SX d1_s = af + gi + at;
     SX d_r = amostragem * d1_s;
-    // std::cout << "d_r: " << d_r << std::endl; //pode excluir
-    // SX d1 = SX::vertcat({SX::zeros(4, 1), d_r}); // Possivel erro com o tamanho de d_r
-    SX qd1 = p1 + d_r;
+    SX d1 = SX::vertcat({SX::zeros(4, 1), d_r(Slice(0, 4))}); // Possivel erro com o tamanho de d_r
+    SX qd1 = p1 + d1;
     heligiro = heligiro + qd1;
-    // std::cout << "heligiro: " << heligiro << std::endl; //pode excluir
 
     // Aceleração angular
     // Calcular o momento angular
     SX m_wb = m_qd_casadi(J_inertia_sx, wb);
     // Negativo de wb
     SX wb_neg = x_outro - wb;
-    // std::cout << "heligiro2: " << heligiro << std::endl; //pode excluir
-    // Soma do produto vetorial, cross(-wb, M(J, wb)), com o torque de controle
-    // std::cout << "wb_neg " << wb_neg.size1() << wb_neg.size2() << std::endl; //pode excluir
-    // std::cout << "wb_neg " << m_wb.size1() << m_wb.size2() << std::endl; //pode excluir
     SX soma_cross = cross_qd_casadi(wb_neg, m_wb) + tau.T();
-    // std::cout << "heligiro3: " << heligiro << std::endl; //pode excluir
-    // Multiplicação pela inversa da matriz de inércia
     aak = m_qd_casadi(J_inertia_inv_sx, soma_cross);
-    // std::cout << "aak: " << aak << std::endl; //pode excluir
 
     // Calcular WB
     wb = ad_qd_casadi(conj_qd_casadi(rot_qd_casadi(pose)), SX::horzcat({heligiro(Slice(0, 4)), SX::zeros(4, 1)}));
-    // std::cout << "wb: " << wb << std::endl; //pode excluir
 
     // Cálculo do vk
     SX d_heligiro = SX::vertcat({heligiro(Slice(4, 8)), SX::zeros(4, 1)}); // Parte dual (ṗ_b)
-    SX translação_pose = translacao_qd_casadi(pose); // Parte translacional da pose
+    SX tranlacao_pose = translacao_qd_casadi(pose); // Parte translacional da pose
     p_heligiro = SX::vertcat({heligiro(Slice(0, 4)), SX::zeros(4, 1)}); // Parte real (ω_b)
-    SX cross_prod = cross_qd_casadi(translação_pose, p_heligiro); // Produto vetorial
+    SX cross_prod = cross_qd_casadi(tranlacao_pose, p_heligiro); // Produto vetorial
     p_dot = d_heligiro - cross_prod; // Cálculo de vk
-    // std::cout << "p_dot: " << p_dot << std::endl; //pode excluir
 
     SX st_next_qd = SX::vertcat({pose, heligiro});
-    // std::cout << "st_next_qd: " << st_next_qd << std::endl; //pode excluir
 
     return std::make_tuple(st_next_qd, p_dot, aak, wb, x_outro);
 }
