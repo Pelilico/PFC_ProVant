@@ -782,6 +782,7 @@ SX compute_J_qd(const SX& Q, const SX& Qh, const SX& R, const SX& X0, const SX& 
     ubarra(1, 0) = tauJ(0);          // Primeiro componente de tau
     ubarra(2, 0) = tauJ(1);          // Segundo componente de tau
     ubarra(3, 0) = tauJ(2);          // Terceiro componente de tau
+    
 
     // Cálculo incremental do custo J
     SX J =    mtimes_with_check(xbarra.T(), mtimes_with_check(Q, xbarra, "Q", "xbarra"), "xbarra.T()", "Q * xbarra")
