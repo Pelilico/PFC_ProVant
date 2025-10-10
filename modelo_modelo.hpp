@@ -397,14 +397,26 @@ SX norma_qd_casadi(const SX& q) {
 
 SX mtimes_qd_casadi(const SX& m, const SX& q) {
     // Chama a função vec3_qd_casadi (assumindo que existe)
-    SX q1 = mtimes(m, vec3_qd_casadi(q));
+    if (m.size1() != 3 || m.size2() != 3) {
+        throw std::invalid_argument("A matriz 'm' deve ter dimensões 3x3 em mtimes_qd_casadi.");
+    }
+    if (q.size1() != 8 || q.size2() != 1) {
+        throw std::invalid_argument("O vetor 'q' deve ter dimensões 8x1 em mtimes_qd_casadi.");
+    }
+
+    SX q1 = m(0,0) * q(1);
+    // std::cout << "q1, m, q: " << q1 << ' ' <<m(0,0) << ' ' << q(1) << std::endl; //pode excluir
+    SX q2 = m(1,1) * q(2);
+    // std::cout << "q2: " << q2 << std::endl; //pode excluir
+    SX q3 = m(2,2) * q(3);
+    // std::cout << "q3: " << q3 << std::endl; //pode excluir
     
     // Constrói o vetor resultado
-    SX res = DM::vertcat({
-        DM(0),           // elemento 1: 0
-        q1(0),           // elemento 2: q1(1) - note: índices começam em 0
-        q1(1),           // elemento 3: q1(2)
-        q1(2),           // elemento 4: q1(3)
+    SX res = SX::vertcat({
+        SX(0),           // elemento 1: 0
+        q1,           // elemento 2: q1(1) - note: índices começam em 0
+        q2,           // elemento 3: q1(2)
+        q3,           // elemento 4: q1(3)
         SX(0), SX(0), SX(0), SX(0)  // elementos 5-8: zeros
     });
     
@@ -871,6 +883,11 @@ std::tuple<SX, SX, SX, SX> teste(const SX& state, const SX& U, SX& v_i, SX& aak,
     // aak = mtimes(J_inertia_inv_sx, vec3_qd_casadi(cross_qd_casadi(-w_i, SX::vertcat({SX(0),mtimes(J_inertia_sx, vec3_qd_casadi(w_i)), SX::zeros(4,1)})) + tauk));
     // std::cout << "aak: " << aak << std::endl;
     // aak = SX::vertcat({SX(0), aak, SX(0), SX(0), SX(0), SX(0)});
+    // SX verf1 = rot_qd_casadi(conj_qd_casadi(pose_i));
+    // std::cout << "verf1: " << verf1 << std::endl;
+    // SX verf2 = primario_qd_casadi(heligiro_i);
+    // std::cout << "verf2: " << verf2 << std::endl;
+    // w_i = ad_qd_casadi(verf1, verf2);
     w_i = ad_qd_casadi(rot_qd_casadi(conj_qd_casadi(pose_i)), primario_qd_casadi(heligiro_i));
     // std::cout << "w_i: " << w_i << std::endl;
     v_i = dual_qd_casadi(heligiro_i) - cross_qd_casadi(translacao_qd_casadi(pose_i), primario_qd_casadi(heligiro_i));
