@@ -347,40 +347,15 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
             U_k(i) = M(i, k);
 
         std::cout << "k: " << k << std::endl;
-        // std::tie(estados_t, v_i, aak, w_i) = teste(estados_t, U_k, v_i, aak, w_i, amost);
-        std::tie(estados_t, v_i, aak, w_i, x_outro) = teste(estados_t, U_k, v_i, aak, w_i, x_outro, amost);
+        std::tie(estados_t, v_i, aak, w_i) = teste(estados_t, U_k, v_i, aak, w_i, amost);
+        // std::tie(estados_t, v_i, aak, w_i, x_outro) = teste(estados_t, U_k, v_i, aak, w_i, x_outro, amost);
 
 
         for (int i = 0; i < 16; ++i)
             saidateste(i, k) = static_cast<double>(estados_t(i).scalar());
-
-
-        // SX X_k = X(Slice(), k);
-        // SX U_k = U(Slice(), k);
-        // std::cout << k << std::endl;
-
-
-        // SX P_1=vertcat_with_check({X0, X_r}, {"X0", "X_r"});
-
-        // J += compute_J_qd(Q, Qh, R, X0, X_r, X_k, U_k, k);
-
-        // SX st_next = X(Slice(), k+1);  // Next state
-        // SX st_next_qd;
-
-        // std::tie(st_next_qd, p_dot, aak, wb, x_outro) = compute_next_qd(X_k, U_k, p_dot, aak, wb, x_outro, amost);
-        // if (k == 0) {
-        //     std::cout << "Jfora k0: " << J << std::endl;
-        // }
-        // if (k == 1) {
-        //     std::cout << "Jfora k1: " << J << std::endl;
-        // }
-
-
-        // g = vertcat_with_check({g, st_next - st_next_qd}, {"g", "st_next - st_next_qd"});
         
 
     }
-    g = simplify(g);
 
     std::ofstream saida_file("/home/pedro/catkin_ws/src/ProVANT-Simulator_Developer/source/Structure/control_strategies/quadrotor_mpc/src/saida.txt");
     if (!saida_file.is_open()) {
@@ -398,6 +373,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
 
     saida_file.close();
     std::cout << "Matriz saidateste salva com sucesso em saida.txt!" << std::endl;
+    throw std::runtime_error("Terminoudo a execução após salvar a matriz.");
 
 
 
