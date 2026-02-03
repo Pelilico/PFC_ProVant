@@ -326,8 +326,8 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
 
         SX P_1=vertcat_with_check({X0, X_r}, {"X0", "X_r"});
 
-        // J += compute_J_qd_rapido(Q, Qh, R, X0, X_r, X_k, U_k, k, zeta);
-        J += compute_J_qd(Q, Qh, R, X0, X_r, X_k, U_k);
+        J += compute_J_qd_rapido(Q, Qh, R, X0, X_r, X_k, U_k, k, zeta);
+        // J += compute_J_qd(Q, Qh, R, X0, X_r, X_k, U_k);
 
         SX st_next = X(Slice(), k+1);  // Next state
         SX st_next_qd;
@@ -393,7 +393,6 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
         double yaw_mexe_rad = 45 * M_PI / 180.0; // Converter graus para radianos
         q_d = eul2quat(0, 0, yaw_mexe_rad);
 
-        // std::cout << q_d.w() << " " << q_d.x() << " " << q_d.y() << " " << q_d.z() << std::endl;
         p_des = SX::vertcat({SX(0), SX(alvo[0]), SX(alvo[1]), SX(alvo[2])});
         SX q_des = SX::vertcat({SX(q_d.w()), SX(q_d.x()), SX(q_d.y()), SX(q_d.z())});
         DM dual_pose_des = 0.5 * DM(produto_q(p_des, q_des));
@@ -407,6 +406,7 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
             0.0, 0.0, 0.0, 0.0,                     // Velocidade angular desejada
             0.0, 0.0, 0.0, 0.0                      // Velocidade linear desejada
         };
+        
 
         // Chamar a função Init
         x_r = xr_init;
@@ -485,39 +485,10 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
     std::cout << "Iter: " << Iter << std::endl;
     Iter = Iter + 1;
 
-
-
     Erro << static_cast<double>(Erro_aux(1).scalar()), static_cast<double>(Erro_aux(2).scalar()), static_cast<double>(Erro_aux(3).scalar());
-    
-    //std::cout << "Erro: " << Erro_aux << std::endl;
-    // std::cout << "Erro: " << Erro << std::endl;
-
 
     // Calcula a norma apenas dos primeiros 3 elementos de Erro
     double erro_norma = Erro.norm();
-
-    //double limite_erro = 0.07; // Defina o limite de erro para considerar que o alvo foi alcançado
-
-    // Se o drone já pousou, mantém as entradas mínimas
-
-
-        // Verifica se o drone está próximo do alvo para pousar
-        //double limite_erro = 0.05;
-                // === ADICIONE ESTES PRINTS PARA DEBUG ===
-        double limite_chegada = 0.1;    // Limite para considerar que chegou no alvo
-        double tempo_pairar = 1.0;       // Tempo para pairar antes de pousar (segundos)
-
-        std::cout << "=== DEBUG CONTROLE POUSO ===" << std::endl;
-        std::cout << "Erro norma: " << erro_norma << std::endl;
-        std::cout << "Custo atual: " << custo_atual << std::endl;
-        std::cout << "Limite chegada: " << limite_chegada << std::endl;
-        std::cout << "has_reached_target: " << has_reached_target << std::endl;
-        std::cout << "is_hovering: " << is_hovering << std::endl;
-        std::cout << "has_landed: " << has_landed << std::endl;
-        std::cout << "Prox_pos: " << prox_pos << std::endl;
-        std::cout << "p_des: " << p_des << std::endl;
-        std::cout << "=============================" << std::endl;
-
 
         conversao();
 
@@ -545,15 +516,6 @@ void stepGazebo(ros::ServiceClient& step_physics_client, std_srvs::Empty& srv) {
             Input(2) = double(saida(2));
             Input(3) = double(saida(3));
             std::cout << "Input normal" << saida << std::endl;
-
-            // double limite_erro = 0.07;
-            // if (erro_norma < limite_erro)
-            // {
-            //     std::cout << "Drone chegou ao alvo. Simulando pouso." << std::endl;
-            //     Input.setConstant(0.0); // Mantém entradas em 0 inicialmente
-            //     has_landed = true;      // Marca como pousado
-            //     landed_time = ros::Time::now(); // Registra o tempo do pouso
-            // }
         }
         else
         {
