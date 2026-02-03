@@ -423,36 +423,6 @@ SX mtimes_qd_casadi(const SX& m, const SX& q) {
     return res;
 }
 
-// // Funcao problematica
-// SX normalize_qd_casadi(const SX& qd) {
-//     if (qd.size1() != 8 || qd.size2() != 1) {
-//         throw std::invalid_argument("O vetor 'qd' deve ter dimensões 8x1 em normalize.");
-//     }
-//     // Separar partes real e dual
-//     SX q_real = qd(Slice(0, 4));
-//     SX q_dual = qd(Slice(4, 8));
-
-//     // Calcular norma da parte real
-//     SX norm_real = sqrt(mtimes(q_real, q_real.T()));
-
-//     // Caso especial: norma muito pequena
-//     SX small_norm = norm_real < 1e-12;
-//     SX scale_real = if_else(small_norm, SX(1), SX(1) / norm_real);
-//     SX q_real_norm = scale_real * q_real;
-
-//     // Corrigir parte dual (garantir perpendicularidade)
-//     SX dot_prod = mtimes(q_real_norm, q_dual);
-//     SX q_dual_norm = (q_dual - dot_prod * q_real_norm) * scale_real;
-
-//     // Definir quatérnio identidade dual caso necessário
-//     SX q_real_norm_safe = if_else(norm_real < small_norm, SX::vertcat({1, 0, 0, 0}), q_real_norm);
-//     SX q_dual_norm_safe = if_else(norm_real < small_norm, SX::vertcat({0, 0, 0, 0}), q_dual_norm);
-
-//     // Concatenar resultado (vetor linha 1x8)
-//     SX qd_norm = SX::vertcat({q_real_norm_safe, q_dual_norm_safe});
-//     return qd_norm;
-// }
-
 // Funcao verificada
 // Exponencial de quaternio dual compatível com CasADi
 SX exp_qd_casadi(const SX& q) {
@@ -782,28 +752,8 @@ SX compute_xbarra_qd(const SX& pose, const SX& P) {
     return x_till;
 }
 
+
 SX compute_hbarra_qd(const SX& pose, const SX& heligiro, const SX& P) {
-    // Calcula os elementos de hbarra
-    SX omega_b = heligiro(Slice(1, 4)); // Vetor ω_b (3x1)
-    SX p_dot_b = heligiro(Slice(5, 8)); // Vetor ṗ_b (3x1)
-    SX p_b = pose(Slice(5, 8));       // Vetor p_b (3x1)
-
-    SX termo_coriolis = compute_cross1(omega_b, p_b); // ω_b × p_b (3x1)
-    SX parte_dual_xi_b = p_dot_b + termo_coriolis;  // ṗ_b + ω_b × p_b (3x1)
-
-    SX heligiro_primario = heligiro(Slice(0, 4));
-    SX xi_b = SX::vertcat({heligiro_primario,  // Parte real: ω_b (4x1 - quaternion)
-                         SX(0), 
-                         parte_dual_xi_b});        // Vetor da parte dual (3x1)
-    
-    SX q_e_hat = mult_qd_casadi(inv_qd_casadi(P(Slice(16, 24), 0)), pose);
-    SX xi_d = ad_qd_casadi(conj_qd_casadi(q_e_hat), P(Slice(24, 32), 0));
-    SX erro_heligiro = xi_b - xi_d;
-
-    return erro_heligiro;
-}
-
-SX compute_hbarra_qd2(const SX& pose, const SX& heligiro, const SX& P) {
     // Calcula os elementos de hbarra
     SX omega_i = SX::vertcat({SX(0), heligiro(Slice(1, 4)), SX::zeros(4,1)}); // Vetor ω_i (4x1 - quaternion)
     SX omega_b = ad_qd_casadi(conj_qd_casadi(rot_qd_casadi(pose)), omega_i); // Vetor ω_b (3x1)
@@ -838,7 +788,7 @@ SX compute_J_qd(const SX& Q, const SX& Qh, const SX& R, const SX& X0, const SX& 
 
     // Cálculo de xbarra
     SX xbarra = compute_xbarra_qd(X_k(Slice(0, 8)), P);
-    SX hbarra = compute_hbarra_qd2(X_k(Slice(0, 8)), X_k(Slice(8, 16)), P);
+    SX hbarra = compute_hbarra_qd(X_k(Slice(0, 8)), X_k(Slice(8, 16)), P);
 
     SX conJ = mtimes(mat_aux_con, U_k); //con
     SX torque_motorJ = conJ(0);
@@ -865,7 +815,7 @@ SX compute_J_qd_rapido(const SX& Q, const SX& Qh, const SX& R, const SX& X0, con
 
     // Cálculo de xbarra
     SX xbarra = compute_xbarra_qd(X_k(Slice(0, 8)), P);
-    SX hbarra = compute_hbarra_qd2(X_k(Slice(0, 8)), X_k(Slice(8, 16)), P);
+    SX hbarra = compute_hbarra_qd(X_k(Slice(0, 8)), X_k(Slice(8, 16)), P);
 
     SX conJ = mtimes(mat_aux_con, U_k); //con
     SX torque_motorJ = conJ(0);
